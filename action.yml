@@ -1,0 +1,61 @@
+name: "Prepare Node.js project"
+author: "Makan Taghizadeh <me@mkntz.com>"
+description: "Checkout code, set up Node.js, install dependencies (npm/yarn/pnpm), and cache them for faster CI."
+branding:
+  icon: "download-cloud"
+  color: "green"
+
+inputs:
+  checkout:
+    description: "Whether to checkout the repository (default: true)"
+    default: true
+    required: false
+  production:
+    description: "Whether to execute in production mode (default: false)"
+    default: false
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - if: ${{ inputs.checkout == 'true' }}
+      name: Checkout repository
+      uses: actions/checkout@v6
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version-file: ".nvmrc"
+        cache: "npm"
+
+    - if: ${{ inputs.production == 'false' }}
+      name: Prepare development cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          **/node_modules
+        key: ${{ runner.os }}-node-dev-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-dev-${{ hashFiles('**/package-lock.json') }}
+
+    - if: ${{ inputs.production == 'true' }}
+      name: Prepare production cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          **/node_modules
+        key: ${{ runner.os }}-node-prod-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-prod-${{ hashFiles('**/package-lock.json') }}
+
+    - if: ${{ inputs.production == 'false' }}
+      name: Install all dependencies
+      shell: bash
+      run: |
+        [[ -d node_modules ]] || npm ci --ignore-scripts
+
+    - if: ${{ inputs.production == 'true' }}
+      name: Install production dependencies
+      shell: bash
+      run: |
+        [[ -d node_modules ]] || npm ci --omit=dev --ignore-scripts
